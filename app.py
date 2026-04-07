@@ -4,7 +4,13 @@ import requests
 import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["POST", "GET", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # 从环境变量获取API密钥
 API_KEY = os.environ.get('MOONSHOT_API_KEY', 'sk-yRV43jRyqPxDxss7jdhK0dhNDhBX3SJqw4QCJbY1Jo0z324q')
