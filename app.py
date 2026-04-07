@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import os
@@ -9,6 +9,11 @@ CORS(app)
 # 从环境变量获取API密钥
 API_KEY = os.environ.get('MOONSHOT_API_KEY', 'sk-yRV43jRyqPxDxss7jdhK0dhNDhBX3SJqw4QCJbY1Jo0z324q')
 API_URL = 'https://api.moonshot.cn/v1/chat/completions'
+
+@app.route('/')
+def index():
+    """返回首页"""
+    return send_from_directory('.', 'index.html')
 
 @app.route('/api/generate', methods=['POST'])
 def generate_copy():
