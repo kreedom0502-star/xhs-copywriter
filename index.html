@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书文案生成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-50 to-orange-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- 标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">📝 小红书文案生成器</h1>
+            <p class="text-gray-600">输入产品信息，AI一键生成3版爆款文案</p>
+        </div>
+
+        <!-- 输入表单 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">产品名称</label>
+                    <input type="text" id="productName" placeholder="例如：索尼WH-1000XM5" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">产品类型</label>
+                    <select id="productType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                        <option value="">请选择</option>
+                        <option value="数码">数码产品</option>
+                        <option value="美妆">美妆护肤</option>
+                        <option value="食品">食品饮料</option>
+                        <option value="服装">服装配饰</option>
+                        <option value="家居">家居用品</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">核心卖点（用逗号分隔）</label>
+                    <input type="text" id="sellingPoints" placeholder="例如：降噪效果顶级，续航30小时，佩戴舒适" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">目标人群</label>
+                    <input type="text" id="targetAudience" placeholder="例如：上班族、学生党" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">价格区间</label>
+                    <input type="text" id="priceRange" placeholder="例如：2000-3000元" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">使用场景</label>
+                    <input type="text" id="usageScenario" placeholder="例如：通勤、办公、旅行" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                </div>
+            </div>
+            
+            <button onclick="generateCopy()" id="generateBtn"
+                class="w-full mt-6 bg-gradient-to-r from-pink-500 to-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:from-pink-600 hover:to-orange-600 transition duration-300 flex items-center justify-center gap-2">
+                <span id="btnText">✨ 生成文案</span>
+                <svg id="loadingIcon" class="loading hidden w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 结果展示 -->
+        <div id="results" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">生成结果</h2>
+                <button onclick="copyAll()" class="text-pink-500 hover:text-pink-600 font-medium">
+                    📋 复制全部
+                </button>
+            </div>
+            
+            <div id="copyList" class="space-y-4">
+                <!-- 文案卡片会在这里生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API配置 - 同域部署，使用相对路径
+        const API_URL = '/api/generate';
+
+        async function generateCopy() {
+            // 获取输入值
+            const productName = document.getElementById('productName').value;
+            const productType = document.getElementById('productType').value;
+            const sellingPoints = document.getElementById('sellingPoints').value;
+            const targetAudience = document.getElementById('targetAudience').value;
+            const priceRange = document.getElementById('priceRange').value;
+            const usageScenario = document.getElementById('usageScenario').value;
+
+            // 验证必填项
+            if (!productName || !sellingPoints) {
+                alert('请填写产品名称和核心卖点');
+                return;
+            }
+
+            // 显示加载状态
+            document.getElementById('btnText').textContent = '生成中...';
+            document.getElementById('loadingIcon').classList.remove('hidden');
+            document.getElementById('generateBtn').disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        productName: productName,
+                        productType: productType,
+                        sellingPoints: sellingPoints,
+                        targetAudience: targetAudience,
+                        priceRange: priceRange,
+                        usageScenario: usageScenario
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data.data, data.analysis);
+                } else {
+                    alert('生成失败：' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('生成失败，请检查后端服务是否启动 (python app.py)');
+            } finally {
+                // 恢复按钮状态
+                document.getElementById('btnText').textContent = '✨ 生成文案';
+                document.getElementById('loadingIcon').classList.add('hidden');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function displayResults(text, analysis) {
+            const resultsDiv = document.getElementById('results');
+            const copyList = document.getElementById('copyList');
+            
+            // 解析三个版本
+            const versions = parseVersions(text);
+            
+            copyList.innerHTML = '';
+            
+            const styleNames = ['真实测评型', '清单种草型', '反套路型'];
+            const styleColors = ['bg-blue-50 border-blue-200', 'bg-green-50 border-green-200', 'bg-purple-50 border-purple-200'];
+            
+            versions.forEach((version, index) => {
+                const card = document.createElement('div');
+                card.className = `${styleColors[index]} border rounded-xl p-6`;
+                card.id = `version-${index}`;
+                
+                // 提取信息
+                const title = extractSection(version, '标题') || extractSection(version, '【标题】') || '';
+                const coverSuggestion = extractSection(version, '封面建议') || extractSection(version, '【封面建议】') || '';
+                const imageSuggestion = extractSection(version, '配图建议') || extractSection(version, '【配图建议】') || '';
+                
+                // 组合封面相关信息
+                const coverInfo = `${coverSuggestion} ${imageSuggestion}`.trim();
+                
+                // 清理版本中的分隔符和多余文字
+                let cleanVersion = version.trim();
+                // 移除版本标题行（如：版本2【清单种草型】、版本3【反套路型】）
+                cleanVersion = cleanVersion.replace(/^版本[2-3三][一二]?[【\[][^】\]]+[】\]]?\s*$/gm, '');
+                // 移除Markdown标题格式的版本标记
+                cleanVersion = cleanVersion.replace(/#{1,6}\s*版本[2-3].*$/gm, '');
+                // 移除行尾的版本标记（包括换行后的）
+                cleanVersion = cleanVersion.replace(/\n?版本[2-3三][一二]?[【\[][^】\]]*[】\]]?\s*$/g, '');
+                cleanVersion = cleanVersion.replace(/版本[2-3三][一二]?[【\[][^】\]]*[】\]]?\s*$/g, '');
+                // 清理多余空行
+                cleanVersion = cleanVersion.replace(/\n{3,}/g, '\n\n');
+                cleanVersion = cleanVersion.trim();
+                
+                // 获取该版本的爆款分析
+                const versionAnalysis = analysis && analysis[index] ? analysis[index] : null;
+                const analysisHtml = versionAnalysis ? generateAnalysisHtml(versionAnalysis) : '';
+                
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="font-bold text-lg text-gray-800">版本${index + 1}：${styleNames[index]}</span>
+                        <div class="flex gap-2">
+                            <button class="generate-img-btn text-sm bg-pink-500 text-white px-3 py-1 rounded hover:bg-pink-600" data-index="${index}">
+                                🎨 选择封面模板
+                            </button>
+                            <button onclick="copyText(this)" class="text-sm text-gray-500 hover:text-pink-500 px-3 py-1">
+                                📋 复制
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 爆款基因分析 -->
+                    ${analysisHtml}
+                    
+                    <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">${cleanVersion}</div>
+                    <div id="cover-result-${index}" class="mt-4 hidden"></div>
+                `;
+                
+                // 绑定选择封面模板按钮事件
+                const imgBtn = card.querySelector('.generate-img-btn');
+                imgBtn.addEventListener('click', () => showCoverTemplates(index, title));
+                copyList.appendChild(card);
+            });
+            
+            resultsDiv.classList.remove('hidden');
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // 解析三个版本
+        function parseVersions(text) {
+            const versions = [];
+            
+            // 尝试按版本1/2/3分割
+            const patterns = [
+                /版本[1一][一-龥]*[：:]/,
+                /版本[2二][一-龥]*[：:]/,
+                /版本[3三][一-龥]*[：:]/
+            ];
+            
+            let currentIndex = 0;
+            for (let i = 0; i < patterns.length; i++) {
+                const nextPattern = patterns[i + 1];
+                const match = text.slice(currentIndex).match(patterns[i]);
+                
+                if (match) {
+                    const start = currentIndex + match.index + match[0].length;
+                    let end = text.length;
+                    
+                    if (nextPattern) {
+                        const nextMatch = text.slice(start).match(nextPattern);
+                        if (nextMatch) {
+                            end = start + nextMatch.index;
+                        }
+                    }
+                    
+                    versions.push(text.slice(start, end).trim());
+                    currentIndex = end;
+                }
+            }
+            
+            // 如果没解析到，按【标题】分割
+            if (versions.length === 0) {
+                const titleMatches = text.match(/【标题】/g);
+                if (titleMatches && titleMatches.length >= 3) {
+                    const parts = text.split(/(?=【标题】)/);
+                    for (let i = 1; i < parts.length && versions.length < 3; i++) {
+                        if (parts[i].trim()) versions.push(parts[i].trim());
+                    }
+                }
+            }
+            
+            // 兜底：直接分三段
+            if (versions.length === 0) {
+                const lines = text.split('\n');
+                const totalLength = lines.length;
+                const chunkSize = Math.floor(totalLength / 3);
+                for (let i = 0; i < 3; i++) {
+                    versions.push(lines.slice(i * chunkSize, (i + 1) * chunkSize).join('\n'));
+                }
+            }
+            
+            return versions;
+        }
+        
+        // 提取章节内容
+        function extractSection(text, sectionName) {
+            const patterns = [
+                new RegExp(`${sectionName}[：:]\\s*(.+?)(?=\\n[【]|\\n\\s*\\n|$)`, 's'),
+                new RegExp(`【${sectionName.replace(/【】/g, '')}】[：:]?\\s*(.+?)(?=\\n[【]|\\n\\s*\\n|$)`, 's')
+            ];
+            
+            for (let pattern of patterns) {
+                const match = text.match(pattern);
+                if (match && match[1].trim()) {
+                    return match[1].trim();
+                }
+            }
+            return '';
+        }
+
+        function generateAnalysisHtml(analysis) {
+            const scoreColor = score => {
+                if (score >= 85) return 'text-green-600';
+                if (score >= 70) return 'text-yellow-600';
+                return 'text-red-600';
+            };
+            
+            const scoreBg = score => {
+                if (score >= 85) return 'bg-green-100';
+                if (score >= 70) return 'bg-yellow-100';
+                return 'bg-red-100';
+            };
+            
+            return `
+                <div class="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h5 class="font-bold text-gray-800">🔥 爆款基因分析</h5>
+                        <span class="text-2xl font-bold ${scoreColor(analysis.total_score)}">${analysis.total_score}分</span>
+                    </div>
+                    
+                    <!-- 各项评分 -->
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="${scoreBg(analysis.scores['标题吸引力'])} rounded p-2 text-center">
+                            <div class="text-xs text-gray-600">标题吸引力</div>
+                            <div class="font-bold ${scoreColor(analysis.scores['标题吸引力'])}">${analysis.scores['标题吸引力']}</div>
+                        </div>
+                        <div class="${scoreBg(analysis.scores['结构完整度'])} rounded p-2 text-center">
+                            <div class="text-xs text-gray-600">结构完整度</div>
+                            <div class="font-bold ${scoreColor(analysis.scores['结构完整度'])}">${analysis.scores['结构完整度']}</div>
+                        </div>
+                        <div class="${scoreBg(analysis.scores['互动引导力'])} rounded p-2 text-center">
+                            <div class="text-xs text-gray-600">互动引导力</div>
+                            <div class="font-bold ${scoreColor(analysis.scores['互动引导力'])}">${analysis.scores['互动引导力']}</div>
+                        </div>
+                        <div class="${scoreBg(analysis.scores['真实感'])} rounded p-2 text-center">
+                            <div class="text-xs text-gray-600">真实感</div>
+                            <div class="font-bold ${scoreColor(analysis.scores['真实感'])}">${analysis.scores['真实感']}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 爆款基因标签 -->
+                    <div class="mb-3">
+                        <div class="text-xs text-gray-600 mb-1">已植入爆款基因：</div>
+                        <div class="flex flex-wrap gap-1">
+                            ${analysis.viral_genes.map(gene => `<span class="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">${gene}</span>`).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- 优化建议 -->
+                    <div class="bg-gray-50 rounded p-3">
+                        <div class="text-xs text-gray-600 mb-1">💡 优化建议：</div>
+                        <ul class="text-xs text-gray-700 space-y-1">
+                            ${analysis.suggestions.map(s => `<li>• ${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        function copyText(btn) {
+            const text = btn.parentElement.nextElementSibling.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = '✅ 已复制';
+                setTimeout(() => btn.textContent = '📋 复制', 2000);
+            });
+        }
+
+        function copyAll() {
+            const allText = Array.from(document.querySelectorAll('#copyList .prose'))
+                .map(el => el.textContent)
+                .join('\n\n---\n\n');
+            navigator.clipboard.writeText(allText).then(() => {
+                alert('全部文案已复制到剪贴板');
+            });
+        }
+
+        // 预置封面模板
+        const coverTemplates = [
+            {
+                id: 'split',
+                name: '左右分屏式',
+                desc: '左图右文，对比强烈',
+                style: '左右分屏，左侧放产品实拍图，右侧大标题+卖点关键词',
+                colors: '左暖右冷或左冷右暖，形成对比',
+                font: '右侧标题用粗体黑字，关键词用高亮色',
+                bestFor: '数码、美妆、食品'
+            },
+            {
+                id: 'center',
+                name: '中心聚焦式',
+                desc: '产品居中，标题环绕',
+                style: '产品放正中央，标题在上方或下方，周围留白',
+                colors: '纯色背景（白/米/浅灰）+ 产品本色',
+                font: '标题居中，大字报风格',
+                bestFor: '服装、配饰、家居'
+            },
+            {
+                id: 'grid',
+                name: '九宫格拼图式',
+                desc: '多图拼接，信息量大',
+                style: '3x3或2x2拼图，中间或角落放标题',
+                colors: '统一滤镜，保持色调一致',
+                font: '标题压在图上，用描边字',
+                bestFor: '美食、穿搭、测评'
+            },
+            {
+                id: 'text',
+                name: '大字报式',
+                desc: '纯文字封面，冲击力强',
+                style: '纯色背景+超大标题文字，几乎无图',
+                colors: '高饱和度背景（黄/粉/蓝）+ 白字或黑字',
+                font: '超粗字体，文字占画面70%以上',
+                bestFor: '干货、教程、观点'
+            },
+            {
+                id: 'scene',
+                name: '场景氛围式',
+                desc: '生活场景，代入感强',
+                style: '产品融入真实使用场景（桌面、房间、户外）',
+                colors: '自然光线色调，温馨或高级',
+                font: '标题放角落，小字精致',
+                bestFor: '家居、生活方式、旅行'
+            },
+            {
+                id: 'beforeafter',
+                name: '对比反差式',
+                desc: '前后对比，效果直观',
+                style: '左右或上下对比，Before vs After',
+                colors: '对比色区分两边',
+                font: '对比标签用醒目颜色',
+                bestFor: '护肤、清洁、改造'
+            }
+        ];
+
+        function showCoverTemplates(index, title) {
+            const coverDiv = document.getElementById(`cover-result-${index}`);
+            
+            let templatesHtml = coverTemplates.map(t => `
+                <div class="template-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:border-pink-500 hover:bg-pink-50 transition" data-template="${t.id}">
+                    <div class="flex items-center justify-between mb-2">
+                        <h5 class="font-bold text-gray-800">${t.name}</h5>
+                        <span class="text-xs bg-gray-100 px-2 py-1 rounded">${t.bestFor}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-2">${t.desc}</p>
+                    <div class="text-xs text-gray-500">
+                        <p>📐 ${t.style}</p>
+                        <p>🎨 ${t.colors}</p>
+                    </div>
+                </div>
+            `).join('');
+            
+            coverDiv.innerHTML = `
+                <div class="bg-white rounded-lg p-4 border-2 border-pink-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-lg">🎨 选择封面模板</h4>
+                        <button class="text-sm text-gray-500 hover:text-pink-500" onclick="document.getElementById('cover-result-${index}').classList.add('hidden')">✕ 关闭</button>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">选择适合「${title.substring(0, 30)}...」的模板：</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${templatesHtml}
+                    </div>
+                </div>
+            `;
+            coverDiv.classList.remove('hidden');
+            
+            // 绑定模板选择事件
+            coverDiv.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const templateId = card.dataset.template;
+                    const template = coverTemplates.find(t => t.id === templateId);
+                    showTemplateDetail(index, title, template);
+                });
+            });
+        }
+        
+        function showTemplateDetail(index, title, template) {
+            const coverDiv = document.getElementById(`cover-result-${index}`);
+            
+            coverDiv.innerHTML = `
+                <div class="bg-white rounded-lg p-4 border-2 border-pink-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-lg">🎨 ${template.name}</h4>
+                        <button class="text-sm text-gray-500 hover:text-pink-500" onclick="showCoverTemplates(${index}, '${title.replace(/'/g, "\\'")}')">← 返回</button>
+                    </div>
+                    
+                    <!-- 模板说明 -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-gray-700 mb-2"><strong>构图：</strong>${template.style}</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>配色：</strong>${template.colors}</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>字体：</strong>${template.font}</p>
+                        <p class="text-xs text-gray-500 mt-2">💡 适合：${template.bestFor}</p>
+                    </div>
+                    
+                    <!-- 制作步骤 -->
+                    <div class="mb-4">
+                        <h5 class="font-medium text-gray-800 mb-2">📋 制作步骤</h5>
+                        <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                            <li>拍摄或准备产品图片（白底或场景图）</li>
+                            <li>打开 Canva/稿定设计/美图秀秀</li>
+                            <li>创建 3:4 比例画布（小红书封面尺寸）</li>
+                            <li>按上述构图摆放产品图</li>
+                            <li>添加标题文字：「${title}」</li>
+                            <li>调整配色和字体风格</li>
+                            <li>导出保存</li>
+                        </ol>
+                    </div>
+                    
+                    <!-- 快速复制 -->
+                    <div class="flex gap-2">
+                        <button class="copy-template-btn flex-1 bg-pink-500 text-white py-2 rounded hover:bg-pink-600">
+                            📋 复制制作指南
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 绑定复制按钮
+            coverDiv.querySelector('.copy-template-btn').addEventListener('click', () => {
+                const guide = `【${template.name}】封面制作指南
+
+标题：${title}
+
+📐 构图：${template.style}
+🎨 配色：${template.colors}
+✏️ 字体：${template.font}
+
+制作步骤：
+1. 拍摄或准备产品图片（白底或场景图）
+2. 打开 Canva/稿定设计/美图秀秀
+3. 创建 3:4 比例画布（小红书封面尺寸）
+4. 按上述构图摆放产品图
+5. 添加标题文字
+6. 调整配色和字体风格
+7. 导出保存`;
+                navigator.clipboard.writeText(guide).then(() => alert('制作指南已复制'));
+            });
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板');
+            });
+        }
+    </script>
+</body>
+</html>
